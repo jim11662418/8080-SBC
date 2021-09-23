@@ -1,6 +1,6 @@
 # 8080_SBC
 Home-brew Intel 8080 single board computer runs Altair BASIC. 
-The System Monitor was derived from [IMSAIguy's Romable 4K Monitor](http://github.com/imsaiguy/8080-Monitor/).
+The System Monitor was derived from [IMSAI Guy's ROMable 4K Monitor](http://github.com/imsaiguy/8080-Monitor/).
 The firmware was assembled using the [Macro Assembler AS](http://john.ccac.rwth-aachen.de:8000/as/).
 <p align="center"><img src="/images/top.JPEG"/>
 <p align="center">Home-brew Intel 8080 SBC</p><br>
