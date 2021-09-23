@@ -1,0 +1,58 @@
+Name 8085SBC;
+Partno ;
+Revision;
+Date 02/02/2021;
+Designer Jim Loos;
+Company ;
+Location ;
+Assembly ;
+Device G16V8A;
+
+
+/* Inputs:                                              		*/
+
+Pin 1  = RESET;  	/* from pin 2 of DS1233 - goes low on reset	*/
+Pin 2  = IOR;
+Pin 3  = IOW;
+Pin 4  = A15;
+Pin 5  = A7;
+Pin 6  = A6;
+Pin 7  = A5;
+Pin 8  = A4;
+Pin 9  = A1;
+Pin 11 = A0;
+
+/* Outputs: */
+Pin 19 = RAMCS;
+Pin 18 = ROMCS;
+Pin 17 = ACIA_E;
+Pin 16 = ACIA_CS;
+Pin 15 = PPI_CS;
+Pin 14 = A1_NOT;
+Pin 13 = START;     /* no connection */
+Pin 12 = A0_NOT;
+
+
+/*  just a reminder for me (Jim)... */
+/*  ! = NOT                         */
+/*  & = AND                         */
+/*  # = OR                          */
+/*  $ = XOR                         */
+
+/* enable for ACIA	*/
+ACIA_E = !IOR # !IOW;
+
+/* I/O Address decoding	*/
+!ACIA_CS  =       !A7 & !A6 & !A5 & A4;	/* 10H-1FH	*/
+!PPI_CS =          A7 &  A6 &  A5 & A4;	/* F0H-FFH	*/
+
+/* simulates SR flip-flop made up of cross connected NAND gates */
+/* on start-up, RESET forces memory accesses to 8000H-FFFFH (EPROM) */
+START = !RESET # (START & ACIA_CS);	/* reset sets the flip-flop, accessing the ACIA clears it	*/
+
+/* Memory Address decoding	*/
+!RAMCS = !(A15 # START);		/* 0000H-7FFFH	*/
+!ROMCS =  (A15 # START);		/* 8000H-FFFFH	*/
+
+A1_NOT = !A1;
+A0_NOT = !A0;
