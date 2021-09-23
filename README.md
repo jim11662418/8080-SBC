@@ -10,3 +10,13 @@ Home-brew Intel 8008 single board computer with SCELBAL BASIC interpreter in EPR
 <p align="center">Intel 8008 CPU</p><br>
 <p align="center"><img src="/images/TT.jpg"/>
 <p align="center">Menu</p><br>
+<p align="center"><img src="/images/CPU.jpg"/>
+<p align="center">CPU Schematic</p><br>
+<p align="center"><img src="/images/MEMORY.jpg"/>
+<p align="center">Memory Schematic</p><br>
+<p align="center"><img src="/images/ACIA.jpg"/>
+<p align="center">ACIA Schematic</p><br>
+<p align="center"><img src="/images/GAL16V8.jpg"/>
+<p align="center">GAL16V8 Schematic</p><br>
+<p align="center"><img src="/images/PPI.jpg"/>
+<p align="center">PPI Schematic</p><br>
