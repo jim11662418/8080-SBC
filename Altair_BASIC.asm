@@ -2,8 +2,8 @@
             
 ;*******************************************************************************
 ;*                                                                             *
-;*               4K and 8K Altair BASIC for 8080 and 8085 SBCs                 *
-;*                   Portions Copyright © 2021 by Jim Loos                     *
+;*            4K, 8K and 16K Altair BASIC for 8080 and 8085 SBCs               *
+;*                   Portions Copyright Â© 2021 by Jim Loos                     *
 ;*                                                                             *
 ;* On the Altair, the "sense switches" are used by BASIC to select the type of *
 ;* serial card and the the number of stop bits. In this case, we're emulating  *
@@ -32,15 +32,15 @@
 
                 cpu     8085
 ; memory addresses
-ram_start:      equ     0000H       		; ram (0000-7FFF) starts here
+ram_start:      equ     0000H       	    ; ram (0000-7FFF) starts here
 stack_top:      equ     7F00H               ; top of stack
 esc_count:      equ     7FFFH               ; number of times escape key pressed stored here
 cpu_type:       equ     7FFEH               ; 0 for 8080, 5 for 8085
 delay_value:    equ     7FFDH               ; 117 for 8080, 199 for 8085 (for the millisecond delay subroutine)     
 
 ; i/o port addresses
-acia_status:    equ     10H         		; MC6850 ACIA status port address (88-2SIO serial card at MITS standard address of 0x10 (octal 20)
-acia_data:      equ     11H         		; MC6850 ACIA data port address   (88-2SIO serial card at MITS standard address of 0x11 (octal 21)
+acia_status:    equ     10H         	    ; MC6850 ACIA status port address (88-2SIO serial card at MITS standard address of 0x10 (octal 20)
+acia_data:      equ     11H         	    ; MC6850 ACIA data port address   (88-2SIO serial card at MITS standard address of 0x11 (octal 21)
 ; address lines A0 and A1 are inverted before they reach the 8255 PPI on the 8080 SBC
 ; so that PPI port A has the same address as the Altair's sense switch port (0FFH).
 portA:          equ     0FFH
@@ -52,7 +52,7 @@ led_port:       equ     0FEH
 cr              equ     0DH                 ;carriage return
 lf              equ     0AH                 ;line feed
                 
-                org     8000H				; EPROM located 8000H-FFFFH
+                org     8000H		    ; EPROM located 8000H-FFFFH
 
 start:          di                          ; disable interrupts
                 jmp eprom                   
@@ -224,10 +224,10 @@ basic16kbytes:  db 0C3H,0A1H,0C0H,0C3H,090H,000H,0C3H,098H
 ; A hard reset will be required if a checksum error is encountered durning the download.
 ; -----------------------------------------------------------------------------------------
 download:       lxi h,waiting_txt           ; address of the download message
-                call puts					; print "Waiting for hex download..."
+                call puts		    ; print "Waiting for hex download..."
 
 ; wait for the start of record character ':'
-getstart:       call cin                   ; get the first character
+getstart:       call cin                    ; get the first character
                 ani 01111111B               ; mask off MSB
                 cpi 1BH                     ; escape?
                 jz showmenu
@@ -263,7 +263,7 @@ getrecord:      call getbyte                ; start of record received, get leng
                 call getword                ; get address (2 bytes) of last record
                 call getbyte                ; get record type (1 byte) of last record
                 call getbyte                ; get checksum (1 byte) of last record
-                call cin                   ; get the carriage return at the end of the line
+                call cin                    ; get the carriage return at the end of the line
                 stc
                 cmc                         ; clear carry to indicate last record received
                 ret                         ; return when last record is received
@@ -322,7 +322,7 @@ exitgb:         pop b                       ; restore BC pair
                 ret
 
 ; gets an ACSII character from the terminal which represents a nibble of the data byte
-getnibble:      call cin                   ; get a character
+getnibble:      call cin                    ; get a character
                 ani 01111111B               ; mask off MSB
                 cpi ' '                     ; test for blank (abort1)
                 rz                          ; if so, return indicating bad (cy=0)
