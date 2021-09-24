@@ -1,5 +1,5 @@
 # 8080_SBC
-Home-brew Intel 8080 single board computer with Altair BASIC interpreter. 
+Home-brew Intel 8080 single board computer with Altair BASIC interpreters. 
 The System Monitor was derived from [IMSAI Guy's ROMable 4K Monitor](http://github.com/imsaiguy/8080-Monitor/).
 The firmware was assembled using the [Macro Assembler AS](http://john.ccac.rwth-aachen.de:8000/as/).
 <p align="center"><img src="/images/top.JPEG"/>
