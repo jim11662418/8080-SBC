@@ -12,6 +12,10 @@ The firmware was assembled using the [Macro Assembler AS](http://john.ccac.rwth-
 <p align="center">Menu</p><br>
 <p align="center"><img src="/images/4K BASIC.jpg"/>
 <p align="center">4K BASIC</p><br>
+<p align="center"><img src="/images/8K BASIC.jpg"/>
+<p align="center">8K BASIC</p><br>
+<p align="center"><img src="/images/16K BASIC.jpg"/>
+<p align="center">16K ROM BASIC</p><br>
 <p align="center"><img src="/images/CPU.jpg"/>
 <p align="center">CPU</p><br>
 <p align="center"><img src="/images/GAL16V8.jpg"/>
