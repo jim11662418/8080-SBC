@@ -1,46 +1,47 @@
             PAGE 0              ; suppress page headings in ASW listing file
-            
+
 ;*******************************************************************************
 ;*                                                                             *
-;*            4K, 8K and 16K Altair BASIC for 8080 and 8085 SBCs               *
+;*               4K and 8K Altair BASIC for 8080 and 8085 SBCs                 *
 ;*                   Portions Copyright © 2021 by Jim Loos                     *
 ;*                                                                             *
 ;* On the Altair, the "sense switches" are used by BASIC to select the type of *
-;* serial card and the the number of stop bits. In this case, we're emulating  *
+;* serial card and the the number of stop bits. In this case, to specify       *
 ;* an 88-2SIO card at addresses 0x10 and 0x11 (octal 20 and 21) with 2 stop    *
-;* bits. According to the manual "After the initialization dialog is complete, *
-;* and BASIC types OK, you are free to use the sense switches as an input      *
-; device (I/O port 255)."                                                      *        
+;* bits, set all 8 dip switches ON as follows:                                 *
 ;*                                                                             *
-;*        A15 A14 A13 A12 A11 A10 A9  A8                                       *
-;* switch 1   2   3   4   5   6   7   8                                        *
-;*        ON  ON  ON  OFF ON  ON  ON  OFF  for 1 stop bit                      *
-;*        ON  ON  ON  OFF ON  ON  ON  ON   for 2 stop bits                     *
+;*                      A15 A14 A13 A12 A11 A10 A9  A8                         *
+;*                switch 1   2   3   4   5   6   7   8                         *
+;*                       ON  ON  ON  ON  ON  ON  ON  ON                        *
+;*                                                                             *
+;* According to the manual "After the initialization dialog is complete,       *
+;* and BASIC types OK, you are free to use the sense switches as an input      *
+;* device (I/O port 255)."                                                     *
 ;*                                                                             *
 ;* For the 8080 SBC, configure Teraterm for: 115200 bps, 7 data bits, odd      *
-;* parity, 2 stop bits. (7-N-1 or 7-N-2 works OK for BASIC but not for the     *
-;* hex file download.) For the 8085 SBC, use 19200 bps.                        *
+;* parity, 2 stop bits. For the 8085 SBC, use 19200 bps.                       *
 ;*                                                                             *
-;* When using Teraterm's "Send File" function to send an Intel Hex file, set   *
-;* Teraterm's serial port options for 10 msec/line transmit delay.             *  
+;* When using Teraterm's "Send File" function to send an Intel Hex file set    *
+;* Teraterm's serial port options for 10 msec/line transmit delay.             *
 ;*                                                                             *
 ;* When using Teraterm's "Send File" function to send a BASIC source           *
 ;* file to the Altair BASIC interpreter, set Teraterm's serial port options    *
-;* for 1 msec/char and 70 msec/line transmit delay.                            *  
+;* for 1 msec/char and 50 msec/line transmit delay.                            *
 ;*                                                                             *
 ;*******************************************************************************
 
                 cpu     8085
 ; memory addresses
-ram_start:      equ     0000H       	    ; ram (0000-7FFF) starts here
+ram_start:      equ     0000H               ; ram (0000-7FFF) starts here
 stack_top:      equ     7F00H               ; top of stack
 esc_count:      equ     7FFFH               ; number of times escape key pressed stored here
 cpu_type:       equ     7FFEH               ; 0 for 8080, 5 for 8085
-delay_value:    equ     7FFDH               ; 117 for 8080, 199 for 8085 (for the millisecond delay subroutine)     
+delay_value:    equ     7FFDH               ; 117 for 8080, 199 for 8085 (for the millisecond delay subroutine)
 
 ; i/o port addresses
-acia_status:    equ     10H         	    ; MC6850 ACIA status port address (88-2SIO serial card at MITS standard address of 0x10 (octal 20)
-acia_data:      equ     11H         	    ; MC6850 ACIA data port address   (88-2SIO serial card at MITS standard address of 0x11 (octal 21)
+acia_status:    equ     10H                 ; MC6850 ACIA status port address (88-2SIO serial card at MITS standard address of 0x10 (octal 20)
+acia_data:      equ     11H                 ; MC6850 ACIA data port address   (88-2SIO serial card at MITS standard address of 0x11 (octal 21)
+
 ; address lines A0 and A1 are inverted before they reach the 8255 PPI on the 8080 SBC
 ; so that PPI port A has the same address as the Altair's sense switch port (0FFH).
 portA:          equ     0FFH
@@ -49,46 +50,46 @@ portC:          equ     0FDH
 cwr:            equ     0FCH
 led_port:       equ     0FEH
 
-cr              equ     0DH                 ;carriage return
-lf              equ     0AH                 ;line feed
-                
-                org     8000H		    ; EPROM located 8000H-FFFFH
+cr              equ     0DH                 ; carriage return
+lf              equ     0AH                 ; line feed
+                org     8000H               ; EPROM located 8000H-FFFFH
 
 start:          di                          ; disable interrupts
-                jmp eprom                   
+                jmp eprom
 
 copyright_txt:  db "Portions Copyright 2021 by Jim Loos",cr,lf,lf,0
 
 eprom:          mvi a,00000011b
-                out acia_status             ; reset the ACIA
-                mvi a,00000101b             ; 7 data bits, odd parity, 2 stop bits, divide clock by 16, no interrupts                               
+                out acia_status             ; reset the ACIA and reset the startup flip-flop
+                mvi a,00000101b             ; 7 data bits, odd parity, 2 stop bits, divide clock by 16, no interrupts
                 out acia_status             ; configure the ACIA
 
                 lxi sp,stack_top            ; set Stack Pointer to top of ram
-                
+
                 ; detect 8080 or 8085 CPU
-                mvi a,00011111b 
+                mvi a,00011111b
                 sim                         ; set 7.5, 6.5 and 5.5 interrupt masks (8085 only)
                 xra a                       ; clear the accumulator
                 rim                         ; read interrupt masks (8085 only)
                 ana a                       ; set flags
                 jnz i8085                   ; anything but all zeros means an 8085 CPU
-                
-                mvi a,117                   ; for the 8080 SBC using a 16.588 MHz crystal...
+
+;8080 detected
+i8080:          mvi a,117                   ; for the 8080 SBC using a 16.588 MHz crystal...
                 sta delay_value             ; for the millisecond delay subroutine
-                xra a                       ; 0 for 8080 CPU
-                sta cpu_type                
                 mvi a,80H
                 out cwr                     ; program 8080 SBC PPI ports A,B and C as outputs
-                mvi a,11H                   ; program PPI port A to to return the same value as the Altair 
-                out portA                   ; sense switches set for a 88-2SIO card at with 2 stop bits
+                xra a                       ; 0 for 8080 CPU
+                out portA                   ; sense switches set for a 88-2SIO card at with 2 stop bits                
+                sta cpu_type                ; 0 for 8080 CPU
                 jmp clear
-                
+
+;8085 detected
 i8085:          mvi a,199                   ; for the 8085 SBC using a 6.144 MHz crystal...
                 sta delay_value             ; for the millisecond delay subroutine
-                mvi a,5                     ; 5 for 8085 CPU
-                sta cpu_type
-
+                mvi a,5                     
+                sta cpu_type                ; 5 for 8085 CPU
+           
 clear:          xra a
                 out led_port                ; turn off all LEDs
                 sta esc_count               ; clear escape key count
