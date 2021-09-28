@@ -3,7 +3,7 @@
 ;*******************************************************************************
 ;*                                                                             *
 ;*             4K, 8K and 16K  Altair BASIC for 8080 and 8085 SBCs             *
-;*                   Portions Copyright © 2021 by Jim Loos                     *
+;*                   Portions Copyright Â© 2021 by Jim Loos                     *
 ;*                                                                             *
 ;* On the Altair, the "sense switches" are used by BASIC to select the type of *
 ;* serial card and the the number of stop bits; in this case, an 88-2SIO card  *
@@ -29,8 +29,8 @@ esc_count:      equ     ram_end-2           ; number of times escape key pressed
 stack_top:      equ     ram_end-16          ; top of stack
 
 ; i/o port addresses
-acia_status:    equ     10H                 ; MC6850 ACIA status port address (88-2SIO serial card at MITS standard address of 0x10 (octal 20)
-acia_data:      equ     11H                 ; MC6850 ACIA data port address   (88-2SIO serial card at MITS standard address of 0x11 (octal 21)
+acia_status:    equ     10H                 ; MC6850 ACIA status port address (88-2SIO serial card at MITS standard address of 10H (octal 20)
+acia_data:      equ     11H                 ; MC6850 ACIA data port address   (88-2SIO serial card at MITS standard address of 11H (octal 21)
 
 ;for the 8255 on the 8080 SBC... note: the odd addresses are because address lines A0 and A1 to the 8255 are inverted.
 cwr_80:         equ     0F8H                    
