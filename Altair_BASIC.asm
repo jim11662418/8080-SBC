@@ -7,7 +7,7 @@
 ;*                                                                             *
 ;* On the Altair, the "sense switches" are used by BASIC to select the type of *
 ;* serial card and the the number of stop bits; in this case, an 88-2SIO card  *
-;* at addresses 0x10 and 0x11 (octal 20 and 21) with 2 stop bits. These BASIC  *
+;* at addresses 10H and 11H (octal 20 and 21) with 2 stop bits. These BASIC    *
 ;* images have been hacked to eliminate the requirement for sense switches.    *
 ;*                                                                             *
 ;* Configure Teraterm for 7 data bits, odd parity, 2 stop bits.                *
