@@ -2,71 +2,64 @@
 
 ;*******************************************************************************
 ;*                                                                             *
-;*               4K and 8K Altair BASIC for 8080 and 8085 SBCs                 *
-;*                   Portions Copyright Â© 2021 by Jim Loos                     *
+;*             4K, 8K and 16K  Altair BASIC for 8080 and 8085 SBCs             *
+;*                   Portions Copyright © 2021 by Jim Loos                     *
 ;*                                                                             *
 ;* On the Altair, the "sense switches" are used by BASIC to select the type of *
-;* serial card and the the number of stop bits. In this case, to specify       *
-;* an 88-2SIO card at addresses 0x10 and 0x11 (octal 20 and 21) with 2 stop    *
-;* bits, set all 8 dip switches ON as follows:                                 *
+;* serial card and the the number of stop bits; in this case, an 88-2SIO card  *
+;* at addresses 0x10 and 0x11 (octal 20 and 21) with 2 stop bits. These BASIC  *
+;* images have been hacked to eliminate the requirement for sense switches.    *
 ;*                                                                             *
-;*                      A15 A14 A13 A12 A11 A10 A9  A8                         *
-;*                switch 1   2   3   4   5   6   7   8                         *
-;*                       ON  ON  ON  ON  ON  ON  ON  ON                        *
+;* Configure Teraterm for 7 data bits, odd parity, 2 stop bits.                *
+;* For the 8080 SBC use 115200 bps. For the 8085 SBC, use 19200 bps.           *
 ;*                                                                             *
-;* According to the manual "After the initialization dialog is complete,       *
-;* and BASIC types OK, you are free to use the sense switches as an input      *
-;* device (I/O port 255)."                                                     *
-;*                                                                             *
-;* For the 8080 SBC, configure Teraterm for: 115200 bps, 7 data bits, odd      *
-;* parity, 2 stop bits. For the 8085 SBC, use 19200 bps.                       *
-;*                                                                             *
-;* When using Teraterm's "Send File" function to send an Intel Hex file set    *
-;* Teraterm's serial port options for 10 msec/line transmit delay.             *
-;*                                                                             *
-;* When using Teraterm's "Send File" function to send a BASIC source           *
-;* file to the Altair BASIC interpreter, set Teraterm's serial port options    *
-;* for 1 msec/char and 50 msec/line transmit delay.                            *
+;* When using Teraterm's "Send File" function to send an Intel hex file or     *
+;* BASIC source file to the Altair BASIC interpreter, set Teraterm's serial    *
+;* port options for 1 msec/char and 50 msec/line transmit delay.               *
 ;*                                                                             *
 ;*******************************************************************************
 
                 cpu     8085
 ; memory addresses
 ram_start:      equ     0000H               ; ram (0000-7FFF) starts here
-stack_top:      equ     7F00H               ; top of stack
-esc_count:      equ     7FFFH               ; number of times escape key pressed stored here
-cpu_type:       equ     7FFEH               ; 0 for 8080, 5 for 8085
-delay_value:    equ     7FFDH               ; 117 for 8080, 199 for 8085 (for the millisecond delay subroutine)
+ram_end:        equ     7FFFH
+cpu_type:       equ     ram_end             ; 0 for 8080, 5 for 8085
+delay_value:    equ     ram_end-1           ; 117 for 8080, 199 for 8085 (for the millisecond delay subroutine)
+esc_count:      equ     ram_end-2           ; number of times escape key pressed stored here
+stack_top:      equ     ram_end-16          ; top of stack
 
 ; i/o port addresses
 acia_status:    equ     10H                 ; MC6850 ACIA status port address (88-2SIO serial card at MITS standard address of 0x10 (octal 20)
 acia_data:      equ     11H                 ; MC6850 ACIA data port address   (88-2SIO serial card at MITS standard address of 0x11 (octal 21)
 
-; address lines A0 and A1 are inverted before they reach the 8255 PPI on the 8080 SBC
-; so that PPI port A has the same address as the Altair's sense switch port (0FFH).
-portA:          equ     0FFH
-portB:          equ     0FEH
-portC:          equ     0FDH
-cwr:            equ     0FCH
-led_port:       equ     0FEH
+;for the 8255 on the 8080 SBC... note: the odd addresses are because address lines A0 and A1 to the 8255 are inverted.
+cwr_80:         equ     0F8H                    
+portC_80:       equ     0F9H
+portB_80:       equ     0FAH
+portA_80:       equ     0FBH
+
+;for the 8155 on the 8085 SBC...
+cmd_85          equ     0F8H
+portA_85        equ     0F9H
+portB_85        equ     0FAH
+portC_85        equ     0FBH
+
+led_port:       equ     0FAH                ; the same on both 8080 and 8085 SBCs
 
 cr              equ     0DH                 ; carriage return
 lf              equ     0AH                 ; line feed
+
                 org     8000H               ; EPROM located 8000H-FFFFH
 
-start:          di                          ; disable interrupts
+start:          di
                 jmp eprom
-
-copyright_txt:  db "Portions Copyright 2021 by Jim Loos",cr,lf,lf,0
-
-eprom:          mvi a,00000011b
+eprom:          lxi sp,stack_top            ; set Stack Pointer to top of ram
+                mvi a,00000011b
                 out acia_status             ; reset the ACIA and reset the startup flip-flop
                 mvi a,00000101b             ; 7 data bits, odd parity, 2 stop bits, divide clock by 16, no interrupts
                 out acia_status             ; configure the ACIA
 
-                lxi sp,stack_top            ; set Stack Pointer to top of ram
-
-                ; detect 8080 or 8085 CPU
+                ; detect either 8080 or 8085 CPU
                 mvi a,00011111b
                 sim                         ; set 7.5, 6.5 and 5.5 interrupt masks (8085 only)
                 xra a                       ; clear the accumulator
@@ -74,75 +67,75 @@ eprom:          mvi a,00000011b
                 ana a                       ; set flags
                 jnz i8085                   ; anything but all zeros means an 8085 CPU
 
-;8080 detected
-i8080:          mvi a,117                   ; for the 8080 SBC using a 16.588 MHz crystal...
+;8080 CPU detected
+i8080:          mvi a,117                   ; for the 8080 SBC using a 1.843 MHz clock...
                 sta delay_value             ; for the millisecond delay subroutine
-                mvi a,80H
-                out cwr                     ; program 8080 SBC PPI ports A,B and C as outputs
-                xra a                       ; 0 for 8080 CPU
-                out portA                   ; sense switches set for a 88-2SIO card at with 2 stop bits                
+                mvi a,99H
+                out cwr_80                  ; program 8255 port B as output, ports A and C as inputs
+                xra a
                 sta cpu_type                ; 0 for 8080 CPU
                 jmp clear
 
-;8085 detected
-i8085:          mvi a,199                   ; for the 8085 SBC using a 6.144 MHz crystal...
+;8085 CPU detected
+i8085:          mvi a,199                   ; for the 8085 SBC using a 3.072 MHz clock...
                 sta delay_value             ; for the millisecond delay subroutine
+                mvi a,02H
+                out cmd_85                  ; program 8155 port B as output, ports A and C as inputs
                 mvi a,5                     
                 sta cpu_type                ; 5 for 8085 CPU
-           
+
 clear:          xra a
-                out led_port                ; turn off all LEDs
+                out led_port                ; turn off all LEDs                
                 sta esc_count               ; clear escape key count
-                
                 lxi h,signon_txt1           ; address of the initial part of the sign on message
-                call puts					; print "Mini-Altair 808..."
-                lda cpu_type
-                call outhexnibble           ; print the CPU type "0" or "5" depending on CPU
-                lxi h,signon_txt2           ; address of the remainder of the sign on message
-                call puts
-                
+                call puts                   ; print "Mini-Altair 808..."
+                lda cpu_type                ; "0" for 8080 CPU or "5" for 8085 CPU
+                call outhexnibble           ; print "0" for 8080 CPU or "5" for 8085 CPU
+                lxi h,signon_txt2
+                call puts                   ; print the remainder of the sign on message
+
 showmenu:       lxi h,menu_txt
                 call puts                   ; print the menu
 prompt:         lxi h,prompt_txt
                 call puts                   ; print the prompt
-                
-getinput:       call cin                   ; get an input character
+
+getinput:       call cin                    ; get a character from input
                 cpi ':'                     ; is it the start-of-record character for a hex download?
                 jnz testfor1
-                jmp startfound              ; start of record detected, jump into Intel Hex file download routine
-                
-testfor1:       cpi '1'
+                jmp startfound              ; start of record detected, jump into Intel hex file download routine
+
+testfor1:       cpi '1'                     ; load 4K BASIC?
                 jnz testfor2
                 lxi h,basic4k               ; address of start of Altair 4K BASIC image
-                lxi b,basic4kend-basic4k    ; 4096 bytes to copy                
+                lxi b,basic4kend-basic4k    ; 4096 bytes to copy
                 jmp loadBASIC               ; load 4K BASIC image into RAM
-                
-testfor2:       cpi '2'                     
+
+testfor2:       cpi '2'                     ; load 8K BASIC?
                 jnz testfor3
                 lxi h,basic8k               ; address of start of Altair 8K BASIC image
                 lxi b,basic8kend-basic8k    ; 8192 bytes to copy
                 jmp loadBASIC               ; load 8K BASIC image into RAM
-                
-testfor3:       cpi '3'
+
+testfor3:       cpi '3'                     ; load ROM BASIC?
                 jnz testfor4
-                jmp basic16k                ; jump to 16K BASIC in ROM                
-                
-testfor4:       cpi '4' 
+                jmp basic16k                ; jump to 16K BASIC in ROM
+
+testfor4:       cpi '4'                     ; BASIC warm start?
                 jnz testfor5
-                
+
                 call newline
-                lxi B,basic16kbytes         
+                lxi B,basic16kbytes
                 lxi H,ram_start+0040H
                 lxi D,8
                 call block_compare          ; check if 16K BASIC has been previously loaded
                 jc  0C0A1H                  ; yes, jump to 16K BASIC warm start address
-                
+
                 lxi B,basic4kbytes
                 lxi H,ram_start
                 lxi D,8
                 call block_compare          ; check if 4K BASIC has been previously loaded
                 jc  ram_start               ; yes, jump to 4K BASIC warm start address
-                
+
                 lxi B,basic8kbytes
                 lxi H,ram_start
                 lxi D,8
@@ -152,47 +145,47 @@ testfor4:       cpi '4'
 noBASIC:        lxi h,notloaded_txt         ; no, display "BASIC not loaded"
                 call puts
                 jmp prompt
-                
-testfor5:       cpi '5'
+
+testfor5:       cpi '5'                     ; system monitor?
                 jnz testfor6
                 jmp monitor                 ; execute the monitor program
 
-testfor6:       cpi '6'
+testfor6:       cpi '6'                     ; hex file download?
                 jnz testforESC
                 jmp download                ; Intel Hex file download
-                
-; pressing 'Escape' three times followed by '?' displays the copyright message                
+
+; pressing 'Escape' three times followed by '?' displays the copyright message
 testforESC:     cpi 1BH                     ; is it the escape key?
                 jnz testforQMark            ; no, next test
-                
+
                 lda esc_count
                 inr a                       ; increment count each time the escape key is received
                 sta esc_count
                 jmp getinput                ; go back for another character
-                
+
 testforQMark:   cpi '?'                     ; is it '?'
                 jnz resetcount              ; jump if not
-                
+
                 lda esc_count
                 cpi 3                       ; were the previous three keys 'escape'?
                 jnz resetcount              ; jump if not
-                
+
                 lxi h,signon_txt1           ; address of the initial part of the sign on message
-                call puts					; print "Mini-Altair 808..."
+                call puts                   ; print "Mini-Altair 808..."
                 lda cpu_type
                 call outhexnibble           ; print the CPU type "0" or "5" depending on CPU
-                lxi h,signon_txt2           ; address of the remainder of the sign on message
-                call puts                
+                lxi h,signon_txt2           
+                call puts                   ; print the remainder of the sign on message
                 lxi h,copyright_txt
                 call puts                   ; print the copyright message
                 xra a
                 sta esc_count               ; reset count back to start
                 jmp prompt                  ; prompt for another character
-                
+
 resetcount:     xra a
                 sta esc_count               ; reset count back to start
                 jmp showmenu                ; display the menu and get another character
-                
+
 ; -----------------------------------------------------------------------------------------
 ; compare two blocks of memory. HL contains the starting address of the first block.
 ; BC contains the starting address of the second block. DE contains the byte count.
@@ -204,7 +197,7 @@ block_compare:  ldax B                      ;fetch byte from the first block
                 stc                         ;else, return with carry clear in no match
                 cmc
                 ret
-                
+
 block_comp1:    inx B                       ;next byte from the first block
                 inx H                       ;next byte from the second block
                 dcx D                       ;decrement the count
@@ -213,7 +206,7 @@ block_comp1:    inx B                       ;next byte from the first block
                 jnz block_compare           ;loop back if more bytes to compare
                 stc                         ;else, return with carry set if both blocks match
                 ret
-                
+
 ; bytes loaded into RAM by 4K, 8K and 16K BASIC respectively
 ; used to test if BASIC has been loaded.
 basic4kbytes:   db 0F3H,0C3H,001H,002H,09EH,004H,007H,008H
@@ -225,7 +218,7 @@ basic16kbytes:  db 0C3H,0A1H,0C0H,0C3H,090H,000H,0C3H,098H
 ; A hard reset will be required if a checksum error is encountered durning the download.
 ; -----------------------------------------------------------------------------------------
 download:       lxi h,waiting_txt           ; address of the download message
-                call puts		    ; print "Waiting for hex download..."
+                call puts                   ; print "Waiting for hex download..."
 
 ; wait for the start of record character ':'
 getstart:       call cin                    ; get the first character
@@ -241,8 +234,8 @@ getstart:       call cin                    ; get the first character
 ; the start of record character ":" has been received
 startfound:     call getrecord              ; get the next Intel hex record
                 jc getstart                 ; loop back for more records until finished
-                
-; the last record has been received. the entry address is in HL  
+
+; the last record has been received. the entry address is in HL
                 push h                      ; push the entry address on the stack
                 push h                      ; push it again
                 lxi h,signoff_txt           ; print sign off message
@@ -259,8 +252,8 @@ startfound:     call getrecord              ; get the next Intel hex record
 getrecord:      call getbyte                ; start of record received, get length of record (1 byte)
                 ana a                       ; test for zero (zero length means last record)
                 jnz continue                ; jump if this is not the last record
-        
-                ; receive the last record        
+
+                ; receive the last record
                 call getword                ; get address (2 bytes) of last record
                 call getbyte                ; get record type (1 byte) of last record
                 call getbyte                ; get checksum (1 byte) of last record
@@ -276,11 +269,11 @@ continue:       mov c,a                     ; save the length in C as the checks
                 add h                       ; add high byte of address to the checksum
                 add l                       ; add low byte of address to the checksum
                 mov c,a                     ; save the checksum in C
-        
+
                 call getbyte                ; get the next byte as type (1 byte)
                 add c                       ; add the type byte to the checksum
                 mov c,a                     ; save checksum in C
-        
+
 nextbyte:       call getbyte                ; type received, get the data (1 byte)
                 mov m,a                     ; save the data byte in memory
                 inx h                       ; point to next memory location
@@ -293,7 +286,7 @@ nextbyte:       call getbyte                ; type received, get the data (1 byt
                 jnz checksumerror           ; jump if not ok
                 stc                         ; set carry to indicate more records to follow
                 ret
-        
+
 checksumerror:  lxi h,chksumerr_txt
                 call puts                   ; print "Checksum error! Press RESET."
                 hlt                         ; stay here until hard reset
@@ -316,7 +309,7 @@ getbyte:        push b                      ; save BC pair
                 rlc                         ; so we can insert lower nibble
                 mov b,a                     ; keep high digit in b
                 call getnibble              ; get second digit
-                jnc exitgb                  ; exit immediately if bad checksum 
+                jnc exitgb                  ; exit immediately if bad checksum
                 ora b                       ; insert high digit
                 stc                         ; set carry flag to indicate success
 exitgb:         pop b                       ; restore BC pair
@@ -344,9 +337,9 @@ number:         sui 30H                     ; convert to binary
                 ret
 
 ; -----------------------------------------------------------------------------------------
-; Copy the Altair BASIC image from ROM to RAM. Jump to the start of BASIC
+; Copy the Altair BASIC image from ROM to RAM. Jump to the start of BASIC at 0000H
 ; after the image is loaded.
-; -----------------------------------------------------------------------------------------   				
+; -----------------------------------------------------------------------------------------
 loadBASIC:      lxi d,ram_start             ; beginning of ram
                 call blockcopy              ; copy the 8192 bytes of the Altair 8K BASIC image from ROM to RAM
                 call newline
@@ -389,7 +382,7 @@ cin:            in acia_status
 newline:        mvi a,cr
                 call cout
                 mvi a,lf
-                
+
 ; ------------------------------------------------------------------------------------
 ; type the character in A to the serial port
 ; ------------------------------------------------------------------------------------
@@ -411,9 +404,9 @@ puts:           mov a,m                     ; retrieve the character
                 call cout                   ; send the character out to the console
                 inx h                       ; next address
                 jmp puts
-        
-; ------------------------------------------------------------------------------------                
-; type the word in HL as four hex digits                
+
+; ------------------------------------------------------------------------------------
+; type the word in HL as four hex digits
 ; ------------------------------------------------------------------------------------
 outhexword:     push    psw                 ; save psw
                 mov     a,h                 ; get high byte
@@ -421,9 +414,9 @@ outhexword:     push    psw                 ; save psw
                 mov     a,l                 ; get low byte
                 call    outhexbyte          ; and type it
                 pop     psw                 ; restore psw
-                ret                         ; and return                
-                
-; ------------------------------------------------------------------------------------                
+                ret                         ; and return
+
+; ------------------------------------------------------------------------------------
 ; type the byte in A as two hex digits
 ; ------------------------------------------------------------------------------------
 outhexbyte:     push psw                    ;save PSW
@@ -459,36 +452,40 @@ delay:          push psw
                 push b
                 lda delay_value
                 mov e,a
-d1:             mov d,e 
-d2:             dcr d  
-                jnz d2 
-                dcx b  
+d1:             mov d,e
+d2:             dcr d
+                jnz d2
+                dcx b
                 mov a,b
-                ora c  
-                jnz d1 
-                pop b  
-                pop d  
+                ora c
+                jnz d1
+                pop b
+                pop d
                 pop psw
-                ret        
-            
+                ret
+
 signon_txt1:    db      cr,lf,lf,"Mini-Altair 808",0
 signon_txt2:    db      " Version assembled ",DATE," at ",TIME,cr,lf,0
+copyright_txt:  db      "Portions Copyright 2021 by Jim Loos",cr,lf,lf,0
 menu_txt:       db      cr,lf,lf
-                db      "1 - Altair 4K BASIC cold start",cr,lf                
+                db      "1 - Altair 4K BASIC cold start",cr,lf
                 db      "2 - Altair 8K BASIC cold start",cr,lf
-                db      "3 - Altair ROM BASIC cold start",cr,lf                
-                db      "4 - Altair BASIC warm start",cr,lf                
+                db      "3 - Altair ROM BASIC cold start",cr,lf
+                db      "4 - Altair BASIC warm start",cr,lf
                 db      "5 - System Monitor",cr,lf
-                db      "6 - Intel Hex file download",cr,lf,lf,0                
+                db      "6 - Intel Hex file download",cr,lf,lf,0
 prompt_txt:     db      ">>",0
 signoff_txt:    db      cr,lf,"Jumping to entry address ",0
 waiting_txt:    db      cr,lf,"Waiting for hex download...",cr,lf,lf,0
 chksumerr_txt:  db      cr,lf,"Checksum error! Press RESET.",cr,lf,0
 notloaded_txt:  db      cr,lf,"BASIC has not yet been loaded!",cr,lf,lf,0
-                
+
             org 8470H
-            
-            ;Altair 4K BASIC 4.0 image
+
+; in the BASIC images, all instances of 0DBH,0FFH (IN 0FFH) have been replaced with 03EH,000H (MVI Aa,00)
+; to eliminate the requirement for the Altair's "sense switches".
+
+            ; Altair 4K BASIC 4.0 image
 basic4k:    db  0F3H,0C3H,0E6H,00DH,09EH,004H,007H,008H,07EH,0E3H,0BEH,023H,0E3H,0C2H,0D6H,001H,023H,07EH,0FEH,03AH,0D0H,0C3H,06CH,004H,0F5H,03AH,027H,000H,0C3H,07BH,003H,000H
             db  07CH,092H,0C0H,07DH,093H,0C9H,001H,00DH,03AH,07AH,001H,0B7H,0C2H,0E8H,009H,0C9H,0E3H,022H,041H,000H,0E1H,0C3H,03BH,000H,0C9H,054H,001H,04EH,023H,046H,023H,0C5H
             db  0C3H,040H,000H,0F2H,009H,0B0H,00AH,006H,00AH,0A6H,004H,02FH,00CH,06DH,00CH,0A0H,00CH,0C5H,04EH,044H,0C6H,04FH,052H,0CEH,045H,058H,054H,0C4H,041H,054H,041H,0C9H
@@ -594,7 +591,9 @@ basic4k:    db  0F3H,0C3H,0E6H,00DH,09EH,004H,007H,008H,07EH,0E3H,0BEH,023H,0E3H
             db  059H,0CDH,01AH,008H,0EFH,037H,0F2H,0CEH,00CH,0CDH,00FH,008H,0EFH,0B7H,0F5H,0F4H,008H,00AH,001H,000H,07FH,051H,059H,0CDH,020H,008H,0F1H,0D4H,008H,00AH,0CDH,010H
             db  00AH,0CDH,02BH,00AH,0CDH,0F3H,008H,0CDH,010H,00AH,021H,00EH,00DH,0CDH,01DH,00AH,0C1H,0D1H,03EH,004H,0F5H,0D5H,0C5H,0E5H,0CDH,0F3H,008H,0E1H,0CDH,02EH,00AH,0E5H
             db  0CDH,020H,008H,0E1H,0C1H,0D1H,0F1H,03DH,0C2H,0F4H,00CH,0C3H,0F1H,008H,0BAH,0D7H,01EH,086H,064H,026H,099H,087H,058H,034H,023H,087H,0E0H,05DH,0A5H,086H,0DAH,00FH
-            db  049H,083H,000H,000H,0DBH,0FFH,0E6H,0F0H,00FH,00FH,0FEH,03CH,0C8H,0FEH,038H,037H,0C2H,03DH,00DH,021H,0FFH,00FH,04EH,02BH,07EH,0E6H,0F0H,00FH,00FH,0F5H,06FH,026H
+;           db  049H,083H,000H,000H,0DBH,0FFH,0E6H,0F0H,00FH,00FH,0FEH,03CH,0C8H,0FEH,038H,037H,0C2H,03DH,00DH,021H,0FFH,00FH,04EH,02BH,07EH,0E6H,0F0H,00FH,00FH,0F5H,06FH,026H
+            db  049H,083H,000H,000H,03EH,000H,0E6H,0F0H,00FH,00FH,0FEH,03CH,0C8H,0FEH,038H,037H,0C2H,03DH,00DH,021H,0FFH,00FH,04EH,02BH,07EH,0E6H,0F0H,00FH,00FH,0F5H,06FH,026H            
+;                                   ^^^^ ^^^^
             db  000H,011H,0A2H,00DH,019H,07EH,023H,056H,023H,046H,023H,05EH,067H,0F1H,0F5H,07CH,0DAH,054H,00DH,079H,032H,0A0H,00DH,0F1H,021H,0BEH,00DH,0E5H,00EH,0FFH,0FEH,010H
             db  021H,000H,000H,022H,08FH,003H,0CAH,078H,00DH,0FEH,008H,0D0H,0C6H,011H,0F5H,03EH,003H,0CDH,09FH,00DH,0F1H,0C3H,09FH,00DH,0AFH,0CDH,09FH,00DH,0CDH,09BH,00DH,0CDH
             db  09BH,00DH,02FH,00EH,001H,0CDH,09BH,00DH,0E5H,02AH,09FH,00DH,02EH,0DBH,022H,08FH,003H,0E1H,03EH,02CH,035H,0CDH,09FH,00DH,035H,035H,035H,021H,0A0H,00DH,034H,0D3H
@@ -609,7 +608,9 @@ basic4k:    db  0F3H,0C3H,0E6H,00DH,09EH,004H,007H,008H,07EH,0E3H,0BEH,023H,0E3H
             db  09CH,067H,001H,0F0H,0FFH,009H,0CDH,045H,00BH,021H,027H,001H,0CDH,0B1H,005H,021H,0B1H,005H,022H,005H,002H,0CDH,09EH,002H,021H,001H,002H,022H,002H,000H,0E9H,022H
             db  00DH,0D3H,00EH,04FH,000H,0A0H,00CH,0D7H,00EH,04DH,000H,06DH,00CH,0DBH,00EH,04BH,000H,02FH,00CH,053H,049H,04EH,000H,052H,04EH,044H,000H,053H,051H,052H,000H,054H
             db  045H,052H,04DH,049H,04EH,041H,04CH,020H,057H,049H,044H,054H,048H,000H,04DH,045H,04DH,04FH,052H,059H,020H,053H,049H,05AH,045H,000H,000H,000H,000H,000H,000H,000H
-            db  0F3H,0AFH,0D3H,022H,02FH,0D3H,023H,03EH,02CH,0D3H,022H,03EH,003H,0D3H,010H,0DBH,0FFH,0E6H,010H,00FH,00FH,0C6H,011H,0D3H,010H,031H,000H,010H,0DBH,0FFH,0E6H,00FH
+;           db  0F3H,0AFH,0D3H,022H,02FH,0D3H,023H,03EH,02CH,0D3H,022H,03EH,003H,0D3H,010H,0DBH,0FFH,0E6H,010H,00FH,00FH,0C6H,011H,0D3H,010H,031H,000H,010H,0DBH,0FFH,0E6H,00FH            
+            db  0F3H,0AFH,0D3H,022H,02FH,0D3H,023H,03EH,02CH,0D3H,022H,03EH,003H,0D3H,010H,03EH,000H,0E6H,010H,00FH,00FH,0C6H,011H,0D3H,010H,031H,000H,010H,03EH,000H,0E6H,00FH
+;                                                                                          ^^^^ ^^^^                                                        ^^^^ ^^^^
             db  0FEH,007H,0F2H,08AH,00FH,021H,0ACH,00FH,006H,000H,04FH,087H,081H,04FH,009H,07EH,032H,0A6H,00FH,03DH,032H,09FH,00FH,023H,074H,00DH,051H,003H,0D3H,002H,002H,00EH
             db  00FH,0CDH,09EH,00FH,0FEH,03CH,0CAH,058H,00FH,0FEH,078H,0C2H,041H,00FH,0CDH,09EH,00FH,04FH,0CDH,09EH,00FH,069H,067H,0E9H,0CDH,09EH,00FH,04FH,006H,000H,0CDH,09EH
             db  00FH,05FH,0CDH,09EH,00FH,057H,07AH,0FEH,00FH,03EH,04FH,0CAH,08CH,00FH,0CDH,09EH,00FH,0EBH,077H,0BEH,03EH,04DH,0C2H,08CH,00FH,023H,0EBH,00DH,0C2H,066H,00FH,048H
@@ -821,7 +822,9 @@ basic8k:    db  0F3H,0C3H,00BH,01AH,038H,007H,0E5H,00DH,07EH,0E3H,0BEH,023H,0E3H
             db  000H,000H,000H,07FH,005H,0BAH,0D7H,01EH,086H,064H,026H,099H,087H,058H,034H,023H,087H,0E0H,05DH,0A5H,086H,0DAH,00FH,049H,083H,0CDH,091H,014H,0CDH,07CH,018H,0C1H
             db  0E1H,0CDH,091H,014H,0EBH,0CDH,0A1H,014H,0CDH,076H,018H,0C3H,0B7H,013H,0EFH,0FCH,0FAH,016H,0FCH,089H,014H,03AH,056H,002H,0FEH,081H,0DAH,009H,019H,001H,000H,081H
             db  051H,059H,0CDH,0B9H,013H,021H,018H,012H,0E5H,021H,013H,019H,0CDH,0ACH,017H,021H,0BCH,018H,0C9H,009H,04AH,0D7H,03BH,078H,002H,06EH,084H,07BH,0FEH,0C1H,02FH,07CH
-            db  074H,031H,09AH,07DH,084H,03DH,05AH,07DH,0C8H,07FH,091H,07EH,0E4H,0BBH,04CH,07EH,06CH,0AAH,0AAH,07FH,000H,000H,000H,081H,000H,000H,0DBH,0FFH,0E6H,0F0H,00FH,00FH
+;           db  074H,031H,09AH,07DH,084H,03DH,05AH,07DH,0C8H,07FH,091H,07EH,0E4H,0BBH,04CH,07EH,06CH,0AAH,0AAH,07FH,000H,000H,000H,081H,000H,000H,0DBH,0FFH,0E6H,0F0H,00FH,00FH
+            db  074H,031H,09AH,07DH,084H,03DH,05AH,07DH,0C8H,07FH,091H,07EH,0E4H,0BBH,04CH,07EH,06CH,0AAH,0AAH,07FH,000H,000H,000H,081H,000H,000H,03EH,000H,0E6H,0F0H,00FH,00FH
+;                                                                                                                                                 ^^^^ ^^^^
             db  0FEH,03CH,0C8H,0FEH,038H,037H,0C2H,053H,019H,021H,0FFH,01FH,04EH,02BH,07EH,0E6H,0F0H,00FH,00FH,0F5H,06FH,026H,000H,011H,0B8H,019H,019H,07EH,023H,056H,023H,046H
             db  023H,05EH,067H,0F1H,0F5H,07CH,0DAH,06AH,019H,079H,032H,0B6H,019H,0F1H,021H,0D4H,019H,0E5H,00EH,0FFH,0FEH,010H,021H,000H,000H,022H,052H,005H,0CAH,08EH,019H,0FEH
             db  008H,0D0H,0C6H,011H,0F5H,03EH,003H,0CDH,0B5H,019H,0F1H,0C3H,0B5H,019H,0AFH,0CDH,0B5H,019H,0CDH,0B1H,019H,0CDH,0B1H,019H,02FH,00EH,001H,0CDH,0B1H,019H,0E5H,02AH
@@ -844,17 +847,17 @@ basic8k:    db  0F3H,0C3H,00BH,01AH,038H,007H,0E5H,00DH,07EH,0E3H,0BEH,023H,0E3H
             db  020H,056H,045H,052H,053H,049H,04FH,04EH,05DH,00DH,00AH,043H,04FH,050H,059H,052H,049H,047H,048H,054H,020H,031H,039H,037H,036H,020H,042H,059H,020H,04DH,049H,054H
             db  053H,020H,049H,04EH,043H,02EH,00DH,00AH,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H
             db  000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H,000H
-basic8kend: 
-            
+basic8kend:
+
 ;*********************************************************
 ;*                                                       *
 ;*               8085 system monitor                     *
 ;*                                                       *
 ;*********************************************************
 
-core    equ      07FFFH          ;top of utility ram
+core    equ      07FEFH          ;top of utility ram
 pcloc   equ      core-2
-stack   equ      core-28         ;(core-1ch) stack location
+stack   equ      core-28         ;(core-1CH) stack location
 ram     equ      stack-256       ;requires 256 bytes of ram
 
 ;*********************************************************
@@ -875,8 +878,8 @@ ctrlz   equ       26             ;end of ascii char. in 'asc' psuedo op
 monitor:
 
 ; locate the stack at the top of specified ram memory, set
-; the user register save area and exit template                                                                                                                                                                                                                                                                                 
-		lxi     h,core-2        ;place debug entrance and exit template
+; the user register save area and exit template
+        lxi     h,core-2        ;place debug entrance and exit template
         mvi     b,endx-exitc    ;in RAM, B has length of template
         lxi     d,endx          ;point to template end
 bg1:    dcx     d               ;move pointer down
@@ -907,7 +910,7 @@ next:   lxi     sp,stack        ;restore stack pointer
         call    chrspc          ;type it and a space
 nxt1:   call    chin            ;get command char
         mov     b,a             ;and save command
-        
+
 ; check for some legal non-alpha commands
         cpi     '-'             ;examine previous location
         jz      lstlc           ;
@@ -967,13 +970,13 @@ fnd5:   inx     h               ;bump to low address byte
 optab:  db       '?'             ;command
         dw       help            ;display help (hints, really)
         dw       m75
-        
+
         db       'A'             ;command
         dw       getad           ;to get address
         dw       m32
 
         db       'D'             ;command
-        dw       dumper          ;to dump memory 
+        dw       dumper          ;to dump memory
         dw       m27
 
         db       'F'             ;command
@@ -983,11 +986,11 @@ optab:  db       '?'             ;command
         db       'H'             ;command
         dw       help            ;display help (hints, really)
         dw       m70
-        
+
         db       'I'             ;command
         dw       inport          ;get input from port
         dw       m72
-        
+
         db       'J'             ;command
         dw       jump            ;to jump to memory location
         dw       m27
@@ -999,9 +1002,9 @@ optab:  db       '?'             ;command
         db       'M'             ;command
         dw       move            ;to move area of memory
         dw       m29
-        
+
         db       'O'             ; command
-        dw       outport         ;output to port   
+        dw       outport         ;output to port
         dw       m73
 
         db       'P'             ;command
@@ -1023,9 +1026,9 @@ optab:  db       '?'             ;command
         db       'Z'             ;command
         dw       zap             ;to zap (zero) a block of memory
         dw       m13
- 
-        db       'X'			 ;command
-	    dw       quit            ;exit program
+
+        db       'X'             ;command
+        dw       quit            ;exit program
         dw       m0
 
         db       0FFH            ;end of table code
@@ -1299,7 +1302,7 @@ ghx1:   sui     '0'             ;adjust to binary
 spcby:  call    space           ;type a space
 
 ;*********************************************************
-;* routine to get a hex byte to 'a'.                     * 
+;* routine to get a hex byte to 'a'.                     *
 ;* will force a correct entry.                           *
 ;*********************************************************
 inpby:  call    ghxb            ;get hex byte
@@ -1642,10 +1645,10 @@ pslash: push    psw             ;
 pequ:   push    psw
         mvi     a,'='
         jmp     spac1           ;cont elsewhere
-        
+
 ;*********************************************************
 ;*                 input from I/O port                   *
-;*********************************************************        
+;*********************************************************
 inport: mvi     a,0DBH          ; 'in' opcode
         sta     iosub           ; store the opcode
         mvi     a,0C9H          ; 'ret' opcode
@@ -1658,7 +1661,7 @@ inport: mvi     a,0DBH          ; 'in' opcode
 
 ;*********************************************************
 ;*                 output to I/O port                    *
-;*********************************************************        
+;*********************************************************
 outport:mvi     a,0D3H          ; 'out' opcode
         sta     iosub           ; store the opcode
         mvi     a,0C9H          ; 'ret' opcode
@@ -1693,10 +1696,10 @@ dmnxt:  call    space           ;
 ; 16 bytes hex followed by 16 characters ascii
 dmasc:  call    space           ;space
         call    space
-        pop     h				;get mem location
+        pop     h               ;get mem location
 dmasc1: mov     a,m             ;get byte
         cpi     '~'             ;if > '~' = '.'
-        jnc     dmasc3          
+        jnc     dmasc3
         cpi     ' '             ;if < ' ' = '.'
         jnc     dmasc2
 dmasc3: mvi     a,'.'           ;non printable ascii set '.'
@@ -1793,7 +1796,7 @@ punhex: call    aparam          ;get parameters
 
 ; hl has low address, de has high address
 pn0:    mov     a,l
-        adi     16 
+        adi     16
         mov     c,a
         mov     a,h
         aci     0
@@ -1890,22 +1893,22 @@ hexin:  call    sghxw           ;type space & get bias or c/r
         lxi     h,m74
         call    msg
         pop     h
-        
+
 ldq:    push    h               ;save bias
         xra     a               ;kill
         sta     echo            ; tty0 echo
-        
+
 ld0:    pop     h               ;get bias
         push    h               ;and restore
         call    ascin           ;get input
         mvi     b,':'
         sub     b               ;check for record mark
         jnz     ld0
-        
+
         mov     d,a             ;clear checksum
         call    byte            ;get length
         jz      ld2             ;zero all done
-        
+
         mov     e,a             ;save length
         call    byte            ;get high address
         push    psw             ; and save
@@ -1926,7 +1929,7 @@ ld1:    call    byte            ;get data
         jnz     ld1             ;continue
         call    byte            ;get checksum
         jnz     error           ; jsl
-        mvi     a,'.'           ; jsl    
+        mvi     a,'.'           ; jsl
         call    putch           ; jsl
         jmp     ld0             ; jsl
 
@@ -2892,7 +2895,7 @@ getch:  in acia_status
         ret
 
 poll:   in acia_status
-		ani 00000001b			; check for receiver buffer ready 
+        ani 00000001b           ; check for receiver buffer ready
         ret
 
 ; routine to check for software interupt
@@ -2982,13 +2985,13 @@ type2:  pop     psw             ;restore a and flags
 
 ; exit code template
 ; restores machine state and returns to program execution.
-exitc:  pop     d			    ;restore registers
+exitc:  pop     d               ;restore registers
         pop     b
         pop     psw
         pop     h
-        sphl				    ;set stack pointer
-        ei					    ;enable interupts
-        lxi     h,0			    ;zero HL
+        sphl                    ;set stack pointer
+        ei                      ;enable interupts
+        lxi     h,0             ;zero HL
 
 hlx     equ      $-2
         jmp     0
@@ -3212,7 +3215,7 @@ m71:    db       cr,lf,"ADDRESS XXXX"
         db       cr,lf,"REGISTER MODIFY X"
         db       cr,lf,"SEARCH HEX XXXX YYYY ZZ"
         db       cr,lf,"SEARCH SYMBOLIC XXXX YYYY ZZ"
-        db       cr,lf,"TEST XXXX YYYY"        
+        db       cr,lf,"TEST XXXX YYYY"
         db       cr,lf,"ZAP XXXX YYY",'Y'+80H
 m72:    db       'N'+80H
 m73:    db       "U",'T'+80H
@@ -3255,7 +3258,9 @@ lstsupflag: ds  1               ;suppress listing flag
             org 0C000H
                 ; Altair ROM BASIC Ver. 4.1
 basic16k:       db  0F3H,0C3H,008H,0C0H,024H,0EDH,042H,0EDH,006H,09EH,021H,040H,000H,011H,064H,0C5H,01AH,077H,023H,013H,005H,0C2H,010H,0C0H,0F9H,0CDH,09BH,0C8H,021H,000H,000H,0CDH
-                db  0F3H,0F9H,0CDH,08BH,0D2H,032H,01CH,003H,032H,0D7H,003H,032H,05EH,003H,0DBH,0FFH,0FEH,0FFH,0CAH,000H,0E0H,01FH,01FH,0DAH,0EDH,0E0H,021H,0F4H,0C0H,0CDH,0A8H,0DCH
+;               db  0F3H,0F9H,0CDH,08BH,0D2H,032H,01CH,003H,032H,0D7H,003H,032H,05EH,003H,0DBH,0FFH,0FEH,0FFH,0CAH,000H,0E0H,01FH,01FH,0DAH,0EDH,0E0H,021H,0F4H,0C0H,0CDH,0A8H,0DCH
+                db  0F3H,0F9H,0CDH,08BH,0D2H,032H,01CH,003H,032H,0D7H,003H,032H,05EH,003H,03EH,000H,0FEH,0FFH,0CAH,000H,0E0H,01FH,01FH,0DAH,0EDH,0E0H,021H,0F4H,0C0H,0CDH,0A8H,0DCH
+;                                                                                         ^^^^ ^^^^
                 db  0CDH,0B8H,0C8H,0CDH,02CH,0CDH,0B7H,0C2H,05DH,0C0H,021H,03BH,004H,023H,07CH,0B5H,0CAH,06FH,0C0H,07EH,02FH,077H,0BEH,0CAH,04DH,0C0H,0C3H,06FH,0C0H,0CDH,008H,0D7H
                 db  0B7H,0C2H,07BH,0C6H,0EBH,02BH,03EH,0D9H,046H,077H,0BEH,070H,0C2H,03AH,0C0H,02BH,011H,02CH,001H,0CDH,0CBH,0CBH,0DAH,05BH,0C6H,011H,0CEH,0FFH,022H,02EH,003H,019H
                 db  022H,0D5H,000H,0CDH,05BH,0C8H,02AH,0D5H,000H,011H,018H,0FCH,019H,0E5H,0CDH,0FCH,0FBH,021H,0B9H,0C0H,0CDH,0A8H,0DCH,0E1H,0CDH,007H,0F3H,021H,0ABH,0C0H,0CDH,0A8H
@@ -3717,7 +3722,9 @@ basic16k:       db  0F3H,0C3H,008H,0C0H,024H,0EDH,042H,0EDH,006H,09EH,021H,040H,
                 db  0A5H,086H,0DAH,00FH,049H,083H,0CDH,043H,0ECH,0CDH,025H,0F9H,0C1H,0E1H,0CDH,043H,0ECH,0EBH,0CDH,053H,0ECH,0CDH,01FH,0F9H,0C3H,036H,0EBH,0CDH,0EFH,0EBH,0FCH,0C0H
                 db  0F7H,0FCH,01EH,0ECH,03AH,0A9H,003H,0FEH,081H,0DAH,0B8H,0F9H,001H,000H,081H,051H,059H,0CDH,038H,0EBH,021H,09AH,0E9H,0E5H,021H,0C2H,0F9H,0CDH,07AH,0F8H,021H,069H
                 db  0F9H,0C9H,009H,04AH,0D7H,03BH,078H,002H,06EH,084H,07BH,0FEH,0C1H,02FH,07CH,074H,031H,09AH,07DH,084H,03DH,05AH,07DH,0C8H,07FH,091H,07EH,0E4H,0BBH,04CH,07EH,06CH
-                db  0AAH,0AAH,07FH,000H,000H,000H,081H,021H,04DH,000H,0CDH,005H,0FAH,0CDH,09BH,0C8H,0C3H,006H,0C7H,0DBH,0FFH,0E6H,0F0H,00FH,00FH,0FEH,03CH,0C8H,0FEH,038H,037H,0C2H
+;               db  0AAH,0AAH,07FH,000H,000H,000H,081H,021H,04DH,000H,0CDH,005H,0FAH,0CDH,09BH,0C8H,0C3H,006H,0C7H,0DBH,0FFH,0E6H,0F0H,00FH,00FH,0FEH,03CH,0C8H,0FEH,038H,037H,0C2H
+                db  0AAH,0AAH,07FH,000H,000H,000H,081H,021H,04DH,000H,0CDH,005H,0FAH,0CDH,09BH,0C8H,0C3H,006H,0C7H,03EH,000H,0E6H,0F0H,00FH,00FH,0FEH,03CH,0C8H,0FEH,038H,037H,0C2H
+;                                                                                                                  ^^^^ ^^^^
                 db  00CH,0FAH,021H,0FFH,03FH,04EH,02BH,07EH,0E6H,0F0H,00FH,00FH,0F5H,06FH,026H,000H,011H,071H,0FAH,019H,07EH,023H,056H,023H,046H,023H,05EH,067H,0F1H,0F5H,07CH,0DAH
                 db  023H,0FAH,079H,032H,04DH,000H,0F1H,021H,08DH,0FAH,0E5H,00EH,0FFH,0FEH,010H,021H,000H,000H,022H,0AEH,000H,0CAH,047H,0FAH,0FEH,008H,0D0H,0C6H,011H,0F5H,03EH,003H
                 db  0CDH,04CH,000H,0F1H,0C3H,04CH,000H,0AFH,0CDH,04CH,000H,0CDH,06AH,0FAH,0CDH,06AH,0FAH,02FH,00EH,001H,0CDH,06AH,0FAH,0E5H,02AH,04CH,000H,02EH,0DBH,022H,0AEH,000H
@@ -3759,12 +3766,14 @@ basic16k:       db  0F3H,0C3H,008H,0C0H,024H,0EDH,042H,0EDH,006H,09EH,021H,040H,
                 db  082H,082H,082H,012H,082H,00AH,082H,002H,082H,082H,082H,002H,082H,082H,002H,002H,08AH,08AH,002H,00AH,082H,082H,002H,002H,00AH,00AH,082H,013H,002H,083H,082H,002H
                 db  00AH,003H,082H,03AH,002H,00AH,01AH,002H,001H,000H,001H,000H,000H,001H,000H,000H,008H,000H,008H,000H,000H,000H,000H,000H,00AH,007H,002H,02BH,002H,006H,00AH,003H
                 db  021H,013H,0FFH,011H,000H,02CH,00EH,0EBH,07EH,012H,023H,013H,00DH,0C2H,008H,0FFH,0C3H,000H,02CH,0F3H,0AFH,0D3H,022H,02FH,0D3H,023H,03EH,02CH,0D3H,022H,03EH,003H
-                db  0D3H,010H,0DBH,0FFH,0E6H,010H,00FH,00FH,0C6H,010H,0D3H,010H,031H,079H,02DH,0AFH,0D3H,008H,0DBH,008H,0E6H,008H,0C2H,01CH,02CH,03EH,004H,0D3H,009H,0C3H,038H,02CH
+;               db  0D3H,010H,0DBH,0FFH,0E6H,010H,00FH,00FH,0C6H,010H,0D3H,010H,031H,079H,02DH,0AFH,0D3H,008H,0DBH,008H,0E6H,008H,0C2H,01CH,02CH,03EH,004H,0D3H,009H,0C3H,038H,02CH
+                db  0D3H,010H,03EH,000H,0E6H,010H,00FH,00FH,0C6H,010H,0D3H,010H,031H,079H,02DH,0AFH,0D3H,008H,0DBH,008H,0E6H,008H,0C2H,01CH,02CH,03EH,004H,0D3H,009H,0C3H,038H,02CH
+;                             ^^^^ ^^^^
                 db  0DBH,008H,0E6H,002H,0C2H,02DH,02CH,03EH,002H,0D3H,009H,0DBH,008H,0E6H,040H,0C2H,02DH,02CH,011H,000H,000H,006H,000H,03EH,010H,0F5H,0D5H,0C5H,0D5H,011H,086H,080H
                 db  021H,0EBH,02CH,0DBH,009H,01FH,0DAH,050H,02CH,0E6H,01FH,0B8H,0C2H,050H,02CH,0DBH,008H,0B7H,0FAH,05CH,02CH,0DBH,00AH,077H,023H,01DH,0CAH,072H,02CH,01DH,0DBH,00AH
                 db  077H,023H,0C2H,05CH,02CH,0E1H,011H,0EEH,02CH,001H,080H,000H,01AH,077H,0BEH,0C2H,0CBH,02CH,080H,047H,013H,023H,00DH,0C2H,079H,02CH,01AH,0FEH,0FFH,0C2H,090H,02CH
                 db  013H,01AH,0B8H,0C1H,0EBH,0C2H,0C2H,02CH,0F1H,0F1H,02AH,0ECH,02CH,0CDH,0E5H,02CH,0D2H,0BBH,02CH,004H,004H,078H,0FEH,020H,0DAH,044H,02CH,006H,001H,0CAH,044H,02CH
                 db  0DBH,008H,0E6H,002H,0C2H,0ADH,02CH,03EH,001H,0D3H,009H,0C3H,042H,02CH,03EH,080H,0D3H,008H,0C3H,000H,000H,0D1H,0F1H,03DH,0C2H,046H,02CH,03EH,043H,001H,03EH,04DH
                 db  0FBH,032H,000H,000H,022H,001H,000H,047H,03EH,080H,0D3H,008H,078H,0D3H,001H,0D3H,011H,0D3H,005H,0D3H,023H,0C3H,0DAH,02CH,07AH,0BCH,0C0H,07BH,0BDH,0C9H,000H,000H
-            
+
             end
