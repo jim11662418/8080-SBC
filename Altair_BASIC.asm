@@ -3,7 +3,7 @@
 ;*******************************************************************************
 ;*                                                                             *
 ;*             4K, 8K and 16K  Altair BASIC for 8080 and 8085 SBCs             *
-;*                   Portions Copyright Â© 2021 by Jim Loos                     *
+;*                   Portions Copyright © 2021 by Jim Loos                     *
 ;*                                                                             *
 ;* On the Altair, the "sense switches" are used by BASIC to select the type of *
 ;* serial card and the the number of stop bits; in this case, an 88-2SIO card  *
@@ -32,19 +32,12 @@ stack_top:      equ     ram_end-16          ; top of stack
 acia_status:    equ     10H                 ; MC6850 ACIA status port address (88-2SIO serial card at MITS standard address of 10H (octal 20)
 acia_data:      equ     11H                 ; MC6850 ACIA data port address   (88-2SIO serial card at MITS standard address of 11H (octal 21)
 
-;for the 8255 on the 8080 SBC... note: the odd addresses are because address lines A0 and A1 to the 8255 are inverted.
-cwr_80:         equ     0F8H                    
-portC_80:       equ     0F9H
-portB_80:       equ     0FAH
-portA_80:       equ     0FBH
+cwr:            equ     0FFH                ; 8255 PPI control word register
+portA:          equ     0FEH                ; 8255 PPI port A
+portB:          equ     0FDH                ; 8255 PPI port B
+portC:          equ     0FCH                ; 8255 PPI port C
 
-;for the 8155 on the 8085 SBC...
-cmd_85          equ     0F8H
-portA_85        equ     0F9H
-portB_85        equ     0FAH
-portC_85        equ     0FBH
-
-led_port:       equ     0FAH                ; the same on both 8080 and 8085 SBCs
+led_port:       equ     0FDH                ; the same on both 8080 and 8085 SBCs
 
 cr              equ     0DH                 ; carriage return
 lf              equ     0AH                 ; line feed
@@ -58,33 +51,29 @@ eprom:          lxi sp,stack_top            ; set Stack Pointer to top of ram
                 out acia_status             ; reset the ACIA and reset the startup flip-flop
                 mvi a,00000101b             ; 7 data bits, odd parity, 2 stop bits, divide clock by 16, no interrupts
                 out acia_status             ; configure the ACIA
-
+                
+                mvi a,117                   ; for the 8080 SBC using a 1.843 MHz clock...
+                sta delay_value             ; for the millisecond delay subroutine
+                xra a
+                sta cpu_type                ; 0 for 8080 CPU
+                
                 ; detect either 8080 or 8085 CPU
                 mvi a,00011111b
                 sim                         ; set 7.5, 6.5 and 5.5 interrupt masks (8085 only)
                 xra a                       ; clear the accumulator
                 rim                         ; read interrupt masks (8085 only)
-                ana a                       ; set flags
-                jnz i8085                   ; anything but all zeros means an 8085 CPU
-
-;8080 CPU detected
-i8080:          mvi a,117                   ; for the 8080 SBC using a 1.843 MHz clock...
-                sta delay_value             ; for the millisecond delay subroutine
-                mvi a,99H
-                out cwr_80                  ; program 8255 port B as output, ports A and C as inputs
-                xra a
-                sta cpu_type                ; 0 for 8080 CPU
-                jmp clear
+                ani 00000111B               ; mask everything except interrupt masks
+                jz clear                    ; all zeros means an 8080 CPU
 
 ;8085 CPU detected
-i8085:          mvi a,199                   ; for the 8085 SBC using a 3.072 MHz clock...
+                mvi a,199                   ; for the 8085 SBC using a 3.072 MHz clock...
                 sta delay_value             ; for the millisecond delay subroutine
-                mvi a,02H
-                out cmd_85                  ; program 8155 port B as output, ports A and C as inputs
                 mvi a,5                     
                 sta cpu_type                ; 5 for 8085 CPU
 
-clear:          xra a
+clear:          mvi a,99H
+                out cwr                     ; program 8255 port B as output, ports A and C as inputs
+                xra a
                 out led_port                ; turn off all LEDs                
                 sta esc_count               ; clear escape key count
                 lxi h,signon_txt1           ; address of the initial part of the sign on message
