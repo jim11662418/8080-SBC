@@ -32,13 +32,6 @@ Pin 14 = A1_NOT;
 Pin 13 = START;     /* no connection */
 Pin 12 = A0_NOT;
 
-
-/*  just a reminder for me (Jim)... */
-/*  ! = NOT                         */
-/*  & = AND                         */
-/*  # = OR                          */
-/*  $ = XOR                         */
-
 /* enable for ACIA	*/
 ACIA_E = !IOR # !IOW;
 
