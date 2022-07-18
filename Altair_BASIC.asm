@@ -3,7 +3,7 @@
 ;*******************************************************************************
 ;*                                                                             *
 ;*             4K, 8K and 16K  Altair BASIC for 8080 and 8085 SBCs             *
-;*                   Portions Copyright © 2021 by Jim Loos                     *
+;*                   Portions Copyright Â© 2021 by Jim Loos                     *
 ;*                                                                             *
 ;* On the Altair, the "sense switches" are used by BASIC to select the type of *
 ;* serial card and the the number of stop bits; in this case, an 88-2SIO card  *
@@ -471,7 +471,7 @@ notloaded_txt:  db      cr,lf,"BASIC has not yet been loaded!",cr,lf,lf,0
 
             org 8470H
 
-; in the BASIC images, all instances of 0DBH,0FFH (IN 0FFH) have been replaced with 03EH,000H (MVI Aa,00)
+; in the BASIC images, all instances of 0DBH,0FFH (IN 0FFH) have been replaced with 03EH,000H (MVI A,00)
 ; to eliminate the requirement for the Altair's "sense switches".
 
             ; Altair 4K BASIC 4.0 image
